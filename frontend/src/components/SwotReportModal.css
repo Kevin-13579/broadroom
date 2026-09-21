@@ -1,0 +1,345 @@
+.swot-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.88);
+  backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 2rem;
+}
+
+.swot-modal-container {
+  width: 100%;
+  max-width: 1080px;
+  max-height: 90vh;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 35px rgba(59, 130, 246, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: authCardIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.swot-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 2rem 2.5rem 1.5rem 2.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(30, 41, 59, 0.4);
+}
+
+.swot-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 0.25rem 0.75rem;
+  border-radius: 100px;
+  margin-bottom: 0.5rem;
+}
+
+.swot-title-wrap h2 {
+  font-size: 1.65rem;
+  font-weight: 800;
+  margin: 0 0 0.35rem 0;
+  color: #f8fafc;
+  letter-spacing: -0.02em;
+}
+
+.swot-topic-label {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #94a3b8;
+}
+
+.swot-topic-label span {
+  color: #64748b;
+}
+
+.swot-topic-label strong {
+  color: #e2e8f0;
+}
+
+.swot-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.swot-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.95rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: #cbd5e1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.swot-action-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.swot-action-btn.download-btn {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #93c5fd;
+}
+
+.swot-action-btn.download-btn:hover {
+  background: rgba(59, 130, 246, 0.25);
+  color: #ffffff;
+}
+
+.swot-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.4rem;
+  display: flex;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.swot-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.text-green {
+  color: #34d399;
+}
+
+/* Summary Box */
+.swot-summary-box {
+  margin: 1.5rem 2.5rem 0.5rem 2.5rem;
+  padding: 1.25rem 1.5rem;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+}
+
+.summary-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #38bdf8;
+  margin-bottom: 0.5rem;
+}
+
+.summary-title h4 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.swot-summary-box p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+/* 4 Quadrants Grid */
+.swot-quadrants-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+  padding: 1.25rem 2.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.swot-quadrant {
+  border-radius: 16px;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.2s ease;
+}
+
+/* Strengths - Green */
+.quadrant-strengths {
+  background: rgba(6, 78, 59, 0.25);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+.strengths-icon {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+.strengths-bullet {
+  background: #34d399;
+  box-shadow: 0 0 8px #34d399;
+}
+
+/* Weaknesses - Red */
+.quadrant-weaknesses {
+  background: rgba(136, 19, 55, 0.25);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+}
+.weaknesses-icon {
+  background: rgba(244, 63, 94, 0.2);
+  color: #fb7185;
+}
+.weaknesses-bullet {
+  background: #fb7185;
+  box-shadow: 0 0 8px #fb7185;
+}
+
+/* Opportunities - Blue */
+.quadrant-opportunities {
+  background: rgba(30, 58, 138, 0.25);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+.opportunities-icon {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+.opportunities-bullet {
+  background: #60a5fa;
+  box-shadow: 0 0 8px #60a5fa;
+}
+
+/* Threats - Yellow */
+.quadrant-threats {
+  background: rgba(120, 53, 15, 0.25);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+.threats-icon {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+.threats-bullet {
+  background: #fbbf24;
+  box-shadow: 0 0 8px #fbbf24;
+}
+
+.quadrant-header {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.quadrant-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quadrant-title {
+  flex: 1;
+}
+
+.quadrant-title h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.quadrant-title span {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.quadrant-count {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.2rem 0.55rem;
+  border-radius: 100px;
+}
+
+.quadrant-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.quadrant-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #e2e8f0;
+}
+
+.bullet-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-top: 7px;
+  flex-shrink: 0;
+}
+
+.empty-hint {
+  font-size: 0.82rem;
+  color: #64748b;
+  font-style: italic;
+}
+
+/* Modal Footer */
+.swot-modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 2.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.8);
+}
+
+.footer-note {
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.swot-primary-close {
+  padding: 0.65rem 1.5rem;
+  background: #2563eb;
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.swot-primary-close:hover {
+  background: #1d4ed8;
+}
+
+@media (max-width: 800px) {
+  .swot-quadrants-grid {
+    grid-template-columns: 1fr;
+  }
+}
