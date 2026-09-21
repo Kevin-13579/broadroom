@@ -89,6 +89,11 @@ export const endRoomSession = async (roomId) => {
   return res.data;
 };
 
+export const leaveRoom = async (roomId) => {
+  const res = await api.post(`/rooms/${roomId}/leave`);
+  return res.data;
+};
+
 export const getRoomSwot = async (roomId) => {
   const res = await api.get(`/rooms/${roomId}/swot`);
   return res.data;

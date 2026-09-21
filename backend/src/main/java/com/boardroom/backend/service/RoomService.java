@@ -160,6 +160,31 @@ public class RoomService {
         return toRoomDto(updated, userId);
     }
 
+    @Transactional
+    public RoomDto leaveRoom(Long roomId, Long userId) {
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("Room not found with id: " + roomId));
+
+        roomMemberRepository.findByRoomIdAndUserId(roomId, userId)
+                .ifPresent(roomMemberRepository::delete);
+
+        List<RoomMember> remainingMembers = roomMemberRepository.findByRoomId(roomId);
+        if (remainingMembers.isEmpty()) {
+            room.setStatus(RoomStatus.ENDED);
+            Room saved = roomRepository.save(room);
+            return toRoomDto(saved, userId);
+        }
+
+        // If the user who left was the host, reassign host to the first remaining member
+        if (room.getHost().getId().equals(userId)) {
+            User newHost = remainingMembers.get(0).getUser();
+            room.setHost(newHost);
+            room = roomRepository.save(room);
+        }
+
+        return toRoomDto(room, userId);
+    }
+
     public RoomDto toRoomDto(Room room, Long currentUserId) {
         int count = roomMemberRepository.countByRoomId(room.getId());
         User host = room.getHost();

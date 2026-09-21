@@ -9,7 +9,8 @@ import {
   getTurnState, 
   startRoomSession, 
   endRoomSession,
-  getRoomSwot
+  getRoomSwot,
+  leaveRoom
 } from '../services/api';
 import SwotReportModal from './SwotReportModal';
 import { 
@@ -60,11 +61,21 @@ export default function BoardroomView({ room: initialRoom, currentUser, onLeaveR
 
   const stompClientRef = useRef(null);
   const chatBottomRef = useRef(null);
+  const speechInputRef = useRef(null);
 
   const isHost = room?.host?.id === currentUser?.id;
   const isMyTurn = turnState.activeUserId === currentUser?.id;
   const isInQueue = turnState.queue?.some(q => q.userId === currentUser?.id);
   const canBid = room?.status === 'ACTIVE' && !isMyTurn && !isInQueue;
+
+  // Auto-focus input when it becomes the current user's turn
+  useEffect(() => {
+    if (isMyTurn) {
+      setTimeout(() => {
+        speechInputRef.current?.focus();
+      }, 100);
+    }
+  }, [isMyTurn]);
 
   // Fetch initial room data and members
   useEffect(() => {
@@ -94,13 +105,13 @@ export default function BoardroomView({ room: initialRoom, currentUser, onLeaveR
 
     fetchInitialData();
 
-    // Poll member list every 5 seconds as backup
+    // Poll member list every 4 seconds as fallback
     const memberInterval = setInterval(async () => {
       try {
         const m = await getRoomMembers(initialRoom.id);
         if (isMounted) setMembers(m);
       } catch (e) {}
-    }, 5000);
+    }, 4000);
 
     return () => {
       isMounted = false;
@@ -124,12 +135,35 @@ export default function BoardroomView({ room: initialRoom, currentUser, onLeaveR
           try {
             const turnPayload = JSON.parse(message.body);
             setTurnState(turnPayload);
+            if (turnPayload.roomStatus) {
+              setRoom((prev) => prev ? ({ ...prev, status: turnPayload.roomStatus }) : prev);
+            }
           } catch (err) {
             console.error('Error parsing turn event:', err);
           }
         });
 
-        // 2. Subscribe to Message broadcasts
+        // 2. Subscribe to Room Status updates (e.g. LOBBY -> ACTIVE, ENDED)
+        client.subscribe(`/topic/room/${initialRoom.id}/status`, (message) => {
+          try {
+            const updatedRoom = JSON.parse(message.body);
+            setRoom(updatedRoom);
+          } catch (err) {
+            console.error('Error parsing room status update:', err);
+          }
+        });
+
+        // 3. Subscribe to Real-time Member list changes (joins/leaves)
+        client.subscribe(`/topic/room/${initialRoom.id}/members`, (message) => {
+          try {
+            const updatedMembers = JSON.parse(message.body);
+            setMembers(updatedMembers);
+          } catch (err) {
+            console.error('Error parsing member update:', err);
+          }
+        });
+
+        // 4. Subscribe to Message broadcasts
         client.subscribe(`/topic/room/${initialRoom.id}/messages`, (message) => {
           try {
             const newMsg = JSON.parse(message.body);
@@ -139,7 +173,7 @@ export default function BoardroomView({ room: initialRoom, currentUser, onLeaveR
           }
         });
 
-        // 3. Subscribe to SWOT completion
+        // 5. Subscribe to SWOT completion
         client.subscribe(`/topic/room/${initialRoom.id}/swot`, (message) => {
           try {
             const swot = JSON.parse(message.body);
@@ -287,14 +321,47 @@ export default function BoardroomView({ room: initialRoom, currentUser, onLeaveR
     return '#ef4444'; // red
   };
 
+  // Handle leaving the room cleanly (notifying backend and members)
+  const handleLeaveRoomAction = async () => {
+    try {
+      if (stompClientRef.current?.connected) {
+        stompClientRef.current.publish({
+          destination: `/app/room/${room?.id}/leave`,
+          body: JSON.stringify({ userId: currentUser?.id })
+        });
+      }
+      if (room?.id) {
+        await leaveRoom(room.id);
+      }
+    } catch (e) {
+      console.warn('Error during leaveRoom:', e);
+    }
+    onLeaveRoom();
+  };
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (stompClientRef.current?.connected && room?.id && currentUser?.id) {
+        stompClientRef.current.publish({
+          destination: `/app/room/${room.id}/leave`,
+          body: JSON.stringify({ userId: currentUser.id })
+        });
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [room?.id, currentUser?.id]);
+
   return (
     <div className="boardroom-view-root">
       {/* Top Navigation Bar */}
       <header className="boardroom-topbar">
         <div className="topbar-left">
-          <button className="back-dash-btn" onClick={onLeaveRoom} title="Return to Dashboard">
+          <button className="back-dash-btn" onClick={handleLeaveRoomAction} title="Leave Boardroom & Return to Dashboard">
             <ArrowLeft size={18} />
-            <span>Dashboard</span>
+            <span>Leave Boardroom</span>
           </button>
           
           <div className="boardroom-topic-badge">
@@ -527,36 +594,50 @@ export default function BoardroomView({ room: initialRoom, currentUser, onLeaveR
           <div className="boardroom-controls-bar">
             {/* Bid to speak button */}
             <div className="bid-control-wrap">
-              <button
-                type="button"
-                className={`bid-button ${isMyTurn ? 'active-turn' : ''} ${isInQueue ? 'in-queue' : ''}`}
-                onClick={handleBidToSpeak}
-                disabled={!canBid}
-                title={
-                  room?.status !== 'ACTIVE'
-                    ? 'Session is not active'
-                    : isMyTurn
-                    ? "You are currently speaking!"
-                    : isInQueue
-                    ? 'You are currently in the bidding queue'
-                    : 'Add yourself to the turn queue'
-                }
-              >
-                <Mic size={18} />
-                <span>
-                  {isMyTurn
-                    ? '🎙️ You Are Speaking'
-                    : isInQueue
-                    ? '⏳ In Bidding Queue'
-                    : 'Bid to Speak'}
-                </span>
-              </button>
+              {(() => {
+                const queueIndex = turnState.queue?.findIndex(q => q.userId === currentUser?.id);
+                return (
+                  <button
+                    type="button"
+                    className={`bid-button ${isMyTurn ? 'active-turn' : ''} ${isInQueue ? 'in-queue' : ''}`}
+                    onClick={handleBidToSpeak}
+                    disabled={!canBid}
+                    title={
+                      room?.status !== 'ACTIVE'
+                        ? 'Session is not active'
+                        : isMyTurn
+                        ? "You currently have the floor!"
+                        : isInQueue
+                        ? `You are #${queueIndex + 1} in the speaking queue`
+                        : 'Add yourself to the turn queue'
+                    }
+                  >
+                    <Mic size={18} />
+                    <span>
+                      {isMyTurn
+                        ? '🎙️ You Are Speaking'
+                        : isInQueue
+                        ? queueIndex === 0
+                          ? '⚡ You Speak Next (#1)'
+                          : `⏳ Queue #${queueIndex + 1}`
+                        : 'Bid to Speak'}
+                    </span>
+                  </button>
+                );
+              })()}
             </div>
 
             {/* Speaking Input Form (Active Speaker only) */}
             <form onSubmit={handleSendMessage} className="speech-input-form">
+              {isMyTurn && (
+                <div className="speaker-turn-prompt-banner">
+                  <span className="live-rec-dot"></span>
+                  <span><strong>YOUR TURN TO SPEAK:</strong> You have {timeLeft}s to share your point with the boardroom. Type and press Send.</span>
+                </div>
+              )}
               <div className="speech-input-container">
                 <input
+                  ref={speechInputRef}
                   type="text"
                   value={messageInput}
                   onChange={(e) => setMessageInput(e.target.value)}

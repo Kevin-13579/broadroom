@@ -9,6 +9,7 @@ public class TurnEvent {
     private Long expiresAt;
     private List<QueueUserDto> queue;
     private String eventType = "TURN_CHANGE"; // "TURN_CHANGE", "TIME_UP", "TURN_PASSED"
+    private String roomStatus; // "LOBBY", "ACTIVE", "ENDED"
 
     public TurnEvent() {
     }
@@ -76,5 +77,13 @@ public class TurnEvent {
 
     public void setEventType(String eventType) {
         this.eventType = eventType;
+    }
+
+    public String getRoomStatus() {
+        return roomStatus;
+    }
+
+    public void setRoomStatus(String roomStatus) {
+        this.roomStatus = roomStatus;
     }
 }

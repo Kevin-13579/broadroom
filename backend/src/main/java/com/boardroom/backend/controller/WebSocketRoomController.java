@@ -1,13 +1,17 @@
 package com.boardroom.backend.controller;
 
+import com.boardroom.backend.dto.RoomMemberDto;
 import com.boardroom.backend.service.RoomQueueManager;
+import com.boardroom.backend.service.RoomService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
+import java.util.List;
 import java.util.Map;
 
 @Controller
@@ -16,9 +20,15 @@ public class WebSocketRoomController {
     private static final Logger logger = LoggerFactory.getLogger(WebSocketRoomController.class);
 
     private final RoomQueueManager roomQueueManager;
+    private final RoomService roomService;
+    private final SimpMessagingTemplate messagingTemplate;
 
-    public WebSocketRoomController(RoomQueueManager roomQueueManager) {
+    public WebSocketRoomController(RoomQueueManager roomQueueManager,
+                                   RoomService roomService,
+                                   SimpMessagingTemplate messagingTemplate) {
         this.roomQueueManager = roomQueueManager;
+        this.roomService = roomService;
+        this.messagingTemplate = messagingTemplate;
     }
 
     /**
@@ -66,5 +76,26 @@ public class WebSocketRoomController {
     @MessageMapping("/room/{roomId}/sync")
     public void handleSync(@DestinationVariable Long roomId) {
         roomQueueManager.broadcastTurnState(roomId);
+    }
+
+    /**
+     * User leaves room via WebSocket: client sends to /app/room/{roomId}/leave
+     */
+    @MessageMapping("/room/{roomId}/leave")
+    public void handleLeave(@DestinationVariable Long roomId, @Payload Map<String, Object> payload) {
+        try {
+            Number userIdNum = (Number) payload.get("userId");
+            if (userIdNum != null) {
+                Long userId = userIdNum.longValue();
+                logger.info("Handling WebSocket leave for user {} in room {}", userId, roomId);
+                roomService.leaveRoom(roomId, userId);
+                roomQueueManager.removeUserFromQueueAndTurn(roomId, userId);
+
+                List<RoomMemberDto> members = roomService.getRoomMembers(roomId);
+                messagingTemplate.convertAndSend("/topic/room/" + roomId + "/members", members);
+            }
+        } catch (Exception e) {
+            logger.error("Error handling WebSocket leave for room {}: {}", roomId, e.getMessage());
+        }
     }
 }

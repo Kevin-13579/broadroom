@@ -10,6 +10,7 @@ import com.boardroom.backend.service.SwotService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,15 +26,18 @@ public class RoomController {
     private final RoomQueueManager roomQueueManager;
     private final SwotService swotService;
     private final MessageRepository messageRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     public RoomController(RoomService roomService,
                           RoomQueueManager roomQueueManager,
                           SwotService swotService,
-                          MessageRepository messageRepository) {
+                          MessageRepository messageRepository,
+                          SimpMessagingTemplate messagingTemplate) {
         this.roomService = roomService;
         this.roomQueueManager = roomQueueManager;
         this.swotService = swotService;
         this.messageRepository = messageRepository;
+        this.messagingTemplate = messagingTemplate;
     }
 
     @PostMapping("/create")
@@ -100,13 +104,40 @@ public class RoomController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "User not authenticated"));
             }
             RoomDto roomDto = roomService.startRoom(roomId, currentUser.getId());
-            // Broadcast state to WebSocket subscribers
-            roomQueueManager.broadcastTurnState(roomId);
+            // Broadcast room status change to all participants
+            messagingTemplate.convertAndSend("/topic/room/" + roomId + "/status", roomDto);
+            // Start host as the first speaker (45 seconds)
+            roomQueueManager.startHostFirstTurn(roomId, currentUser.getId());
             return ResponseEntity.ok(roomDto);
         } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", e.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", "Failed to start session: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{roomId}/leave")
+    public ResponseEntity<?> leaveRoom(@PathVariable Long roomId,
+                                       @AuthenticationPrincipal UserPrincipal currentUser) {
+        try {
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "User not authenticated"));
+            }
+            RoomDto updated = roomService.leaveRoom(roomId, currentUser.getId());
+            roomQueueManager.removeUserFromQueueAndTurn(roomId, currentUser.getId());
+
+            // Broadcast updated member list to room topic
+            List<RoomMemberDto> members = roomService.getRoomMembers(roomId);
+            messagingTemplate.convertAndSend("/topic/room/" + roomId + "/members", members);
+
+            // Broadcast updated room state
+            messagingTemplate.convertAndSend("/topic/room/" + roomId + "/status", updated);
+
+            return ResponseEntity.ok(Map.of("message", "Successfully left room"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", "Failed to leave room: " + e.getMessage()));
         }
     }
 
@@ -118,6 +149,10 @@ public class RoomController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "User not authenticated"));
             }
             SwotResponseDto swot = swotService.endRoomAndGenerateSwot(roomId, currentUser.getId());
+            try {
+                RoomDto roomDto = roomService.getRoom(roomId, currentUser.getId());
+                messagingTemplate.convertAndSend("/topic/room/" + roomId + "/status", roomDto);
+            } catch (Exception ignored) {}
             return ResponseEntity.ok(swot);
         } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", e.getMessage()));

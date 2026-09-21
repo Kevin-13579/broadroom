@@ -212,6 +212,61 @@ public class RoomQueueManager {
     }
 
     /**
+     * Host starts the session and takes the first 45s speaking turn
+     */
+    public synchronized void startHostFirstTurn(Long roomId, Long hostUserId) {
+        Room room = roomRepository.findById(roomId).orElse(null);
+        if (room == null || room.getStatus() != RoomStatus.ACTIVE) {
+            return;
+        }
+
+        // Cancel existing timer if any
+        ActiveTurnState oldState = activeTurns.remove(roomId);
+        if (oldState != null && oldState.timerFuture != null && !oldState.timerFuture.isDone()) {
+            oldState.timerFuture.cancel(false);
+        }
+
+        User host = userRepository.findById(hostUserId).orElse(null);
+        if (host == null) {
+            startNextTurn(roomId);
+            return;
+        }
+
+        long expiresAt = System.currentTimeMillis() + (TURN_DURATION_SECONDS * 1000L);
+
+        ScheduledFuture<?> timerFuture = scheduler.schedule(() -> {
+            handleTimeout(roomId, hostUserId);
+        }, TURN_DURATION_SECONDS, TimeUnit.SECONDS);
+
+        ActiveTurnState newState = new ActiveTurnState(host.getId(), host.getUsername(), expiresAt, timerFuture);
+        activeTurns.put(roomId, newState);
+
+        logger.info("Host {} started first turn in room {}, expires at {}", host.getUsername(), roomId, expiresAt);
+        broadcastTurnState(roomId);
+    }
+
+    /**
+     * Remove user from bidding queue and advance turn if they were currently speaking
+     */
+    public synchronized void removeUserFromQueueAndTurn(Long roomId, Long userId) {
+        ConcurrentLinkedQueue<Long> queue = roomQueues.get(roomId);
+        if (queue != null) {
+            queue.remove(userId);
+        }
+
+        ActiveTurnState currentTurn = activeTurns.get(roomId);
+        if (currentTurn != null && Objects.equals(currentTurn.userId, userId)) {
+            logger.info("Current speaker {} left room {}. Advancing turn.", userId, roomId);
+            if (currentTurn.timerFuture != null && !currentTurn.timerFuture.isDone()) {
+                currentTurn.timerFuture.cancel(false);
+            }
+            startNextTurn(roomId);
+        } else {
+            broadcastTurnState(roomId);
+        }
+    }
+
+    /**
      * Broadcasts current turn and queue state
      */
     public void broadcastTurnState(Long roomId) {
@@ -221,6 +276,7 @@ public class RoomQueueManager {
         TurnEvent event = new TurnEvent();
         event.setRoomId(roomId);
         event.setQueue(queueUsers);
+        roomRepository.findById(roomId).ifPresent(r -> event.setRoomStatus(r.getStatus().name()));
 
         if (current != null && current.userId != null) {
             event.setActiveUserId(current.userId);
@@ -247,6 +303,7 @@ public class RoomQueueManager {
         TurnEvent event = new TurnEvent();
         event.setRoomId(roomId);
         event.setQueue(queueUsers);
+        roomRepository.findById(roomId).ifPresent(r -> event.setRoomStatus(r.getStatus().name()));
 
         if (current != null && current.userId != null) {
             event.setActiveUserId(current.userId);
