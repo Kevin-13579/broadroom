@@ -11,10 +11,18 @@ export default function AuthModal({ onAuthSuccess }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const [slowNotice, setSlowNotice] = useState(false);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSlowNotice(false);
     setLoading(true);
+
+    // If request takes longer than 4 seconds, inform the user about Render cold start
+    const slowTimer = setTimeout(() => {
+      setSlowNotice(true);
+    }, 4000);
 
     try {
       let data;
@@ -24,6 +32,7 @@ export default function AuthModal({ onAuthSuccess }) {
         if (!username || !email || !password) {
           setError('Please fill in all fields.');
           setLoading(false);
+          clearTimeout(slowTimer);
           return;
         }
         data = await registerUser(username, email, password);
@@ -33,10 +42,15 @@ export default function AuthModal({ onAuthSuccess }) {
       }
     } catch (err) {
       console.error('Auth error:', err);
-      const msg = err.response?.data?.message || err.message || 'Authentication failed. Please try again.';
+      let msg = err.response?.data?.message || err.message || 'Authentication failed. Please try again.';
+      if (err.message === 'Network Error' || !err.response) {
+        msg = 'Cannot connect to server. If deployed on Vercel, ensure VITE_API_URL is set in Vercel settings and Render is awake.';
+      }
       setError(msg);
     } finally {
+      clearTimeout(slowTimer);
       setLoading(false);
+      setSlowNotice(false);
     }
   };
 
@@ -73,6 +87,13 @@ export default function AuthModal({ onAuthSuccess }) {
           <div className="auth-error-banner">
             <AlertCircle size={16} />
             <span>{error}</span>
+          </div>
+        )}
+
+        {slowNotice && (
+          <div className="auth-notice-banner">
+            <span className="notice-dot"></span>
+            <span>Connecting to backend... If the cloud server is waking up from sleep, this may take ~45–60s on the first request.</span>
           </div>
         )}
 
