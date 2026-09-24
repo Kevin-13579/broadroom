@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # Spring Boot Backend on AWS EC2
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: boardroom-backend
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      # Points to AWS RDS MySQL endpoint
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-*}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # React Frontend (Nginx Reverse Proxy) on AWS EC2
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ""
+    container_name: boardroom-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80"

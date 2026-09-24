@@ -4,6 +4,16 @@
 *.log
 .DS_Store
 
+# AWS & Environment Secrets (NEVER COMMIT TO GIT)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.id_rsa
+aws-credentials*
+credentials.json
+
 # Backend
 backend/target/
 backend/.mvn/wrapper/maven-wrapper.jar
@@ -14,3 +24,4 @@ frontend/dist/
 frontend/dist-ssr/
 frontend/.env*.local
 frontend/*.local
+
